@@ -1,5 +1,5 @@
 apply plugin: 'com.android.application'
-apply plugin: 'org.greenrobot.greendao'
+apply plugin: 'realm-android'
 
 android {
     compileSdkVersion 25
@@ -20,12 +20,6 @@ android {
     }
 }
 
-greendao {
-    schemaVersion 1
-    daoPackage 'com.example.lyubomyr.testtask1_android.database.greendao'
-    targetGenDir 'src/main/java'
-}
-
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
     androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
@@ -34,6 +28,5 @@ dependencies {
     compile 'com.android.support:appcompat-v7:25.3.1'
     compile 'com.android.support:design:25.3.1'
     compile 'com.android.support.constraint:constraint-layout:1.0.2'
-    compile 'org.greenrobot:greendao:3.2.0'
     testCompile 'junit:junit:4.12'
 }

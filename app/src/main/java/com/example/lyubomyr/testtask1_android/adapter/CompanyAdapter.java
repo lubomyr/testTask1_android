@@ -9,7 +9,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 
-import com.example.lyubomyr.testtask1_android.BaseApplication;
 import com.example.lyubomyr.testtask1_android.R;
 import com.example.lyubomyr.testtask1_android.dialog.AddEditDialog;
 import com.example.lyubomyr.testtask1_android.entity.Company;

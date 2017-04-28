@@ -10,15 +10,18 @@ import android.widget.Button;
 import com.example.lyubomyr.testtask1_android.adapter.CompanyAdapter;
 import com.example.lyubomyr.testtask1_android.dialog.AddEditDialog;
 import com.example.lyubomyr.testtask1_android.entity.Company;
-import com.example.lyubomyr.testtask1_android.repository.CompanyRepository;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import io.realm.Realm;
+import io.realm.RealmList;
+import io.realm.RealmResults;
+
 public class MainActivity extends AppCompatActivity implements CompanyAdapter.OnItemClickListener,
-        AddEditDialog.DialogListener{
-    public List<Company> companyRootList;
+        AddEditDialog.DialogListener {
+    public RealmList<Company> companyRootList;
+    private Realm realm;
     private CompanyAdapter adapter;
 
     @Override
@@ -26,38 +29,50 @@ public class MainActivity extends AppCompatActivity implements CompanyAdapter.On
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        companyRootList = new ArrayList<>();
+        realm = Realm.getDefaultInstance();
+        companyRootList = new RealmList<>();
         getData();
-        if (companyRootList.isEmpty()) {
+        if (companyRootList.isEmpty())
             setData();
-            getData();
-        }
         bindAdapter();
         bindEvent();
     }
 
     private void setData() {
-        Company google = new Company(1L, null, "Google");
-        Company apple = new Company(2L, null, "Apple");
-        Company microsoft = new Company(3L, null, "Microsoft");
-        Company skype = new Company(4L, microsoft.getId(), "Skype");
-        Company android = new Company(5L, google.getId(), "Android");
-        Company angular = new Company(6L, android.getId(), "Angular");
-        Company nokia = new Company(7L, microsoft.getId(), "Nokia");
-        Company facebook = new Company(8L, skype.getId(), "Facebook");
+        Company google = new Company(1L, "Google", null);
+        Company apple = new Company(2L, "Apple", null);
+        Company microsoft = new Company(3L, "Microsoft", null);
+        Company skype = new Company(4L, "Skype", microsoft);
+        Company android = new Company(5L, "Android", google);
+        Company angular = new Company(6L, "Angular", android);
+        Company nokia = new Company(7L, "Nokia", microsoft);
+        Company facebook = new Company(8L, "Facebook", skype);
 
         List<Company> companyFullList = Arrays.asList(google, apple, microsoft, skype, android,
                 angular, nokia, facebook);
 
-        for (Company c : companyFullList)
-            c.__setDaoSession(BaseApplication.getDaoSession());
+        realm.beginTransaction();
+        realm.delete(Company.class);
 
-        CompanyRepository.saveAll(companyFullList);
-        companyRootList = Arrays.asList(google, apple, microsoft);
+        for (Company c : companyFullList) {
+            if (c.getParent() == null)
+                companyRootList.add(c);
+            else {
+                Company parent = c.getParent();
+                RealmList<Company> children = new RealmList<>();
+                if (parent.getChildren() != null)
+                    children = parent.getChildren();
+                children.add(c);
+                parent.setChildren(children);
+            }
+        }
+        realm.copyToRealm(companyFullList);
+        realm.commitTransaction();
     }
 
     private void getData() {
-        companyRootList = CompanyRepository.getRoot();
+        RealmResults<Company> results = realm.where(Company.class).isNull("parent").findAll();
+        companyRootList.addAll(results.subList(0, results.size()));
     }
 
     private void bindAdapter() {
@@ -108,37 +123,51 @@ public class MainActivity extends AppCompatActivity implements CompanyAdapter.On
     }
 
     private void deleteCompany(Company company) {
+        realm.beginTransaction();
         if (company.getParent() == null) {
             companyRootList.remove(company);
         } else {
             Company parent = company.getParent();
-            List<Company> children = parent.getChildren();
+            RealmList<Company> children = parent.getChildren();
             children.remove(company);
         }
-        CompanyRepository.delete(company);
+        RealmResults<Company> result = realm.where(Company.class).equalTo("name", company.getName()).findAll();
+        result.deleteAllFromRealm();
+        realm.commitTransaction();
         adapter.notifyDataSetChanged();
+    }
+
+    public Long getNextKey()
+    {
+        try {
+            return realm.where(Company.class).max("id").longValue() + 1;
+        } catch (ArrayIndexOutOfBoundsException e)
+        { return 0L; }
     }
 
     @Override
     public void addResult(Company parent, String name) {
-        Company company;
+        Company company = new Company(getNextKey(), name, parent);
+        realm.beginTransaction();
+        RealmList<Company> children = new RealmList<>();
+        company.setChildren(children);
         if (parent != null) {
-            company = new Company(parent.getId(), name);
-            List<Company> children = parent.getChildren();
+            if (parent.getChildren() != null)
+                children = parent.getChildren();
             children.add(company);
         } else {
-            company = new Company(null, name);
             companyRootList.add(company);
         }
-        company.__setDaoSession(BaseApplication.getDaoSession());
-        CompanyRepository.insert(company);
+        realm.copyToRealmOrUpdate(company);
+        realm.commitTransaction();
         adapter.notifyDataSetChanged();
     }
 
     @Override
     public void editResult(Company company, String name) {
+        realm.beginTransaction();
         company.setName(name);
-        CompanyRepository.update(company);
+        realm.commitTransaction();
         adapter.notifyDataSetChanged();
     }
 }
